@@ -1,86 +1,79 @@
 #!/bin/bash
 
-# if GOPATH not set
-if [ -z "$GOPATH" ] ; then
-  echo "GOPATH not defined"
-  exit 1
-fi
+###########################################################################
+#
+#  Tank build script for Linux or MacOS
+#
+###########################################################################
 
-PRE_DIR=$(pwd)
+#prepare the variables.
 
-VERSION_NAME=tank-2.0.0
-FINAL_NAME=$VERSION_NAME.linux-amd64.tar.gz
+# version name
+VERSION_NAME=tank-3.0.4
+echo "VERSION_NAME: ${VERSION_NAME}"
+#  golang proxy
+GOPROXY=https://athens.azurefd.net
+echo "GOPROXY: ${GOPROXY}"
+# eg. amd64
+GOARCH=$(go env GOARCH)
+echo "GOARCH: ${GOARCH}"
+# eg. /data/golang
+GOPATH=$(go env GOPATH)
+echo "GOPATH: ${GOPATH}"
+# eg. darwin
+GOOS=$(go env GOOS)
+echo "GOOS: ${GOOS}"
+# service dir eg. /data/tank/build/pack
+PACK_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+echo "PACK_DIR: ${PACK_DIR}"
+# build dir eg. /data/tank/build
+BUILD_DIR=$(dirname ${PACK_DIR})
+echo "BUILD_DIR: ${BUILD_DIR}"
+# project dir eg. /data/tank
+PROJECT_DIR=$(dirname ${BUILD_DIR})
+echo "PROJECT_DIR: ${PROJECT_DIR}"
+# final zip file name.
+FILE_NAME=${VERSION_NAME}.${GOOS}-${GOARCH}.tar.gz
+echo "FILE_NAME: ${FILE_NAME}"
+# zip dist dir eg. /data/tank/tmp/dist
+DIST_DIR=${PROJECT_DIR}/tmp/dist
+echo "DIST_DIR: ${DIST_DIR}"
+# component dir eg. /data/tank/tmp/dist/tank-x.x.x
+COMPONENT_DIR=${DIST_DIR}/${VERSION_NAME}
+echo "COMPONENT_DIR: ${COMPONENT_DIR}"
+# final dist path eg. /data/tank/tmp/dist/tank-x.x.x.darwin-amd64.tar.gz
+DIST_PATH=${DIST_DIR}/${FILE_NAME}
+echo "DIST_PATH: ${DIST_PATH}"
 
-cd $GOPATH
+cd ${PROJECT_DIR}
 
-# echo "go get golang.org/x"
-# go get golang.org/x
-if [ ! -d "$GOPATH/src/golang.org" ] ; then
-  echo "git clone https://github.com/eyebluecn/golang.org.git"
-  git clone https://github.com/eyebluecn/golang.org.git $GOPATH/src/golang.org
-fi
-
-# resize image
-echo "go get github.com/disintegration/imaging"
-go get github.com/disintegration/imaging
-
-# json parser
-echo "go get github.com/json-iterator/go"
-go get github.com/json-iterator/go
-
-# mysql
-echo "go get github.com/go-sql-driver/mysql"
-go get github.com/go-sql-driver/mysql
-
-# dao database
-echo "go get github.com/jinzhu/gorm"
-go get github.com/jinzhu/gorm
-
-# uuid
-echo "go get github.com/nu7hatch/gouuid"
-go get github.com/nu7hatch/gouuid
-
-echo "build tank ..."
-go install tank
-
-echo "packaging..."
-distFolder="$GOPATH/src/tank/dist"
-
-# if a directory
-if [ ! -d distFolder ] ; then
-    mkdir $distFolder
-fi
-
-distPath=$distFolder/$VERSION_NAME
+echo "go build -mod=readonly"
+go build -mod=readonly
 
 # if a directory
-if [ -d $distPath ] ; then
-    echo "clear $distPath"
-    rm -rf $distPath
+if [[ -d COMPONENT_DIR ]] ; then
+    rm -rf ${COMPONENT_DIR}
+    mkdir ${COMPONENT_DIR}
+else
+    mkdir -p ${COMPONENT_DIR}
 fi
-
-echo "create directory $distPath"
-mkdir $distPath
 
 echo "copying cmd tank"
-cp "$GOPATH/bin/tank" $distPath
+cp ./tank ${COMPONENT_DIR}
 
 echo "copying build"
-cp -r "$GOPATH/src/tank/build/." $distPath
+cp -r ${BUILD_DIR}/* ${COMPONENT_DIR}
 
 echo "remove pack"
-rm -rf $distPath/pack
+rm -rf ${COMPONENT_DIR}/pack
 
 echo "remove doc"
-rm -rf $distPath/doc
+rm -rf ${COMPONENT_DIR}/doc
 
 echo "compress to tar.gz"
-echo "tar -zcvf $distFolder/$FINAL_NAME ./$VERSION_NAME"
-cd $distPath
-cd ..
-tar -zcvf $distFolder/$FINAL_NAME ./$VERSION_NAME
+echo "tar -zcvf $DIST_PATH $COMPONENT_DIR"
 
-cd $PRE_DIR
+cd ${DIST_DIR}
+tar -zcvf ${DIST_PATH} ./${VERSION_NAME}
 
-echo "check the dist file in $distPath"
-echo "finish!"
+echo "finish packaging!"
